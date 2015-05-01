@@ -18,7 +18,6 @@ public class Pickup extends Entity {
         super(filename, entity.getXposition(), entity.getYposition() + entity.getYsize());
         this.setSize(getXsize() * 2, getYsize() * 2);
         this.body = new PhysicsBody(this, getXsize()/4, getYsize()/4, this.getXsize()/2, this.getYsize()/2);
-        System.out.println("Made one: " + filename);
     }
 
     public void collect() {

@@ -7,7 +7,9 @@ public class Movie {
     public static Animation window;
     public static Player player;
 
-    public static Entity[] dynamicEntities = new Entity[200];
+    // public static Files fileReader;
+
+    public static Entity[] dynamicEntities = new Entity[6000];
     public static int dynamicEntityCount = 0;
     public static Pickup[] pickups = new Pickup[200];
     public static int pickupCount = 0;
@@ -19,12 +21,35 @@ public class Movie {
     public static int gravity = 1;
     public static int tick = 0;
 
+    public static boolean inMenu = true;
+    public static int menuOption = 0;
+    public static Entity[] menuItems = new Entity[50];
+    public static int menuItemCount = 0;
+
+    // public static int[] level1 = {1, 1, 2, 0, 1, 1, 2, 3, 2, 2, 1};
+
     public static void main(String[] args) {
         // Setup window
         window = new Animation(666, 512);
         window.setFrameRate(60);
-        window.setBackgroundImage("Sky.png");
         window.setTitle("Marshmallow Madness");
+
+        // Setup key handling
+        setupKeyboardInput();
+
+        // Handle menu
+        while(inMenu) {
+            window.setBackgroundImage("Menu"+menuOption+".png");
+            window.frameFinished();
+        }
+        // Clear menu items
+        for (int i = 0; i < menuItemCount; i++) {
+            Entity item = menuItems[i];
+            move(item, 0, 512);
+        }
+        window.setBackgroundImage("sky.png");
+
+        // Generate the level
         setupLevel();
 
         // Setup player
@@ -43,13 +68,10 @@ public class Movie {
         Pickup drop = new Pickup("drop.png", 156, 64);
         initPickup(drop);
 
-        // Setup key handling
-        setupKeyboardInput();
-
         // Assign initial floor
         floor = mainFloor;
 
-        // Game Logic
+        // MAIN LOOP
         while (tick > -1) {
 
             // Assign floor
@@ -173,6 +195,11 @@ public class Movie {
             dynamicEntityCount++;
         }
 
+        if (inMenu) {
+            menuItems[menuItemCount] = entity;
+            menuItemCount++;
+        }
+
         entity.game = new Movie();
         window.addSprite(entity);
     }
@@ -229,20 +256,47 @@ public class Movie {
 
             @Override
             public void keyPressed(KeyEvent e) {
-                // If Right is pressed
-                if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
-                    player.xSpeed = 6;
-                }
 
-                // If Left is pressed
-                if (e.getKeyCode() == KeyEvent.VK_LEFT) {
-                    player.xSpeed = -6;
-                }
+                if (inMenu) {
+                    // If Space is pressed
+                    if (e.getKeyCode() == KeyEvent.VK_SPACE || e.getKeyCode() == KeyEvent.VK_ENTER) {
+                        if (menuOption == 0) {
+                            inMenu = false;
+                        }
+                        else if (menuOption == 1) {
+                            menuOption = 2;
+                        }
+                        else if (menuOption == 2) {
+                            menuOption = 1;
+                        }
+                    }
 
-                // If Up is pressed
-                if (e.getKeyCode() == KeyEvent.VK_UP && player.canJump && player.ySpeed == 0) {
-                    player.ySpeed = 16;
-                    player.canJump = false;
+                    // Toggle option
+                    if (e.getKeyCode() == KeyEvent.VK_UP || e.getKeyCode() == KeyEvent.VK_DOWN) {
+                        if (menuOption == 0){
+                            menuOption = 1;
+                        }
+                        else if (menuOption == 1) {
+                            menuOption = 0;
+                        }
+                    }
+                }
+                else {
+                    // If Right is pressed
+                    if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+                        player.xSpeed = 6;
+                    }
+
+                    // If Left is pressed
+                    if (e.getKeyCode() == KeyEvent.VK_LEFT) {
+                        player.xSpeed = -6;
+                    }
+
+                    // If Up is pressed
+                    if (e.getKeyCode() == KeyEvent.VK_UP && player.canJump && player.ySpeed == 0) {
+                        player.ySpeed = 16;
+                        player.canJump = false;
+                    }
                 }
             }
 
@@ -276,6 +330,22 @@ public class Movie {
         Block block3 = new Block ("Grass.png", 256+128, 128);
         block3.setBody(new PhysicsBody(block3));
         initEntity(block3, true, "Coin.png");
+    }
+
+    public static void setupLevel(int[] code) {
+
+        mainFloor = new Block("Grass.png", 0, -64);
+        mainFloor.setSize(666, 64);
+        mainFloor.setBody(new PhysicsBody(mainFloor));
+        initEntity(mainFloor, true);
+
+        for (int i = 0; i < code.length; i++) {
+            for (int j = 0; j < code[i]; j++) {
+                Block block = new Block("Grass.png", 64*i, 64*j);
+                block.setBody(new PhysicsBody(block));
+                initEntity(block, true, "Coin.png");
+            }
+        }
     }
 
     // Move an entity
