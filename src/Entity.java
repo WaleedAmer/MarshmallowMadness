@@ -9,6 +9,9 @@ public class Entity extends Sprite {
     public boolean doesUpdate;
     public String type = "";
     public Movie game;
+    public int gravity = 0;
+    public Entity floor;
+    public boolean canJump = false;
 
     public Entity(String filename, int xx, int yy) {
         super(filename);
@@ -43,5 +46,7 @@ public class Entity extends Sprite {
     }
 
     public void update(int tick) {
+        // x = getXposition();
+        // y = getYposition();
     }
 }

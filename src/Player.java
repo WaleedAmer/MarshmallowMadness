@@ -5,7 +5,6 @@ public class Player extends Entity {
 
     public String file;
     public PhysicsBody body;
-    public boolean canJump = false;
 
     public Player(String filename, int xx, int yy) {
         super(filename, xx, yy);

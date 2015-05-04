@@ -32,7 +32,7 @@ public class Pickup extends Entity {
     }
 
     public void update(int tick) {
-        x += xSpeed;
+        x -= 2;
         y += ySpeed;
 
         bounce(tick);

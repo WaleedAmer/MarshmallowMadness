@@ -1,24 +1,29 @@
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.util.Random;
 
 public class Movie {
 
     public static Animation window;
     public static Player player;
 
-    // public static Files fileReader;
+    public static Entity[] entities = new Entity[6000];
+    public static int entityCount = 0;
+
+    public static Entity[] solidEntities = new Entity[6000];
+    public static int solidEntityCount = 0;
+
+    public static Pickup[] pickups = new Pickup[6000];
+    public static int pickupCount = 0;
+
+    public static Enemy[] enemies = new Enemy[6000];
+    public static int enemyCount = 0;
 
     public static Entity[] dynamicEntities = new Entity[6000];
     public static int dynamicEntityCount = 0;
-    public static Pickup[] pickups = new Pickup[200];
-    public static int pickupCount = 0;
-    public static Enemy[] enemies = new Enemy[200];
-    public static int enemyCount = 0;
-
+    
     public static Block mainFloor;
-    public static Entity floor;
-    public static int gravity = 1;
     public static int tick = 0;
 
     public static boolean inMenu = true;
@@ -26,7 +31,12 @@ public class Movie {
     public static Entity[] menuItems = new Entity[50];
     public static int menuItemCount = 0;
 
-    // public static int[] level1 = {1, 1, 2, 0, 1, 1, 2, 3, 2, 2, 1};
+    public static int[] firstBlob = {1};
+    public static int[][] blobs = {{1, 1, 2, 0, 1, 1}, {2, 0, 1, 1, 2, 2},
+                                   {1, 1, 2, 3, 3, 0}, {2, 1, 0, 0, 1, 2},
+                                   {2, 2, 2, 2, 2, 0}, {2, 1, 2, 1, 0, 0}};
+
+    public static Random rand = new Random();
 
     public static void main(String[] args) {
         // Setup window
@@ -50,116 +60,32 @@ public class Movie {
         window.setBackgroundImage("sky.png");
 
         // Generate the level
-        setupLevel();
+        setupLevel(firstBlob);
 
         // Setup player
-        player = new Player("MarshmallowNew.png", 64, 256);
+        player = new Player("MarshmallowNew.png", 192, 256);
         initEntity(player, true);
+        dynamicEntities[dynamicEntityCount] = player;
+        dynamicEntityCount++;
 
         // Setup enemy
-        for (int i = 0; i < 1; i++) {
-            enemies[i] = new Enemy("Match.png", 32*i, 64);
-            initEnemy(enemies[i]);
-        }
-
-        // Setup pickups
-        Pickup coin = new Pickup("Coin.png", 96, 64);
-        initPickup(coin);
-        Pickup drop = new Pickup("drop.png", 156, 64);
-        initPickup(drop);
+        Enemy enemy = new Enemy("Match.png", 64, 64);
+        initEnemy(enemy);
 
         // Assign initial floor
-        floor = mainFloor;
+        for (int i = 0; i < dynamicEntityCount; i++) {
+            Entity ent = dynamicEntities[i];
+
+            ent.floor = mainFloor;
+        }
 
         // MAIN LOOP
         while (tick > -1) {
 
-            // Assign floor
-            floor = getFloor();
-
-            // Handle player landing
-            int offset = player.ySpeed;
-            for (int speed = player.ySpeed; speed < 0; speed++) {
-                if (player.getYposition() + speed == floorYposition()) {
-                    offset = speed;
-                }
-            }
-
-            // Player is on the ground
-            if (checkCollision(floor.rectOfSelf(), player.destRect()) || player.getYposition() + offset <= floor.getYposition() + floor.getYsize()) {
-                gravity = 0;
-                player.ySpeed = 0;
-                player.setPosition(player.getXposition(), floor.getYposition() + floor.getYsize());
-                player.canJump = true;
-            }
-            else {
-                //System.out.println("In the air");
-                gravity = 1;
-            }
-
-            // Apply gravity to Player's ySpeed
-            player.ySpeed -= gravity;
-
-            // Maximum ySpeed
-            if (player.ySpeed < -16) {
-                player.ySpeed = -16;
-            }
-
-            // Wrapping around the screen
-            if (player.getXposition() > window.getWidth()) { // Off the right
-                player.setPosition(-64, player.getYposition());
-            }
-            if (player.getXposition() < -64) { // Off the left
-                player.setPosition(window.getWidth(), player.getYposition());
-            }
-
-            // Move player by xSpeed and ySpeed
-            if (placeFree(player, player.xSpeed, player.ySpeed)) {
-                move(player, player.xSpeed, player.ySpeed);
-            }
-            else {
-                // Snapping xSpeed
-                int xSpeed = player.xSpeed;
-                if (xSpeed > 0) { // Moving right
-                    for (xSpeed = player.xSpeed; xSpeed > 0; xSpeed--) {
-                        if (placeFree(player, xSpeed, player.ySpeed)) {
-                            break;
-                        }
-                    }
-                }
-                else if (xSpeed < 0) { // Moving left
-                    for (xSpeed = player.xSpeed; xSpeed < 0; xSpeed++) {
-                        if (placeFree(player, xSpeed, player.ySpeed)) {
-                            break;
-                        }
-                    }
-                }
-
-                // Snapping ySpeed
-                int ySpeed = player.ySpeed;
-                if (ySpeed > 0) { // Moving up
-                    for (ySpeed = player.ySpeed; ySpeed > 0; ySpeed--) {
-                        if (placeFree(player, xSpeed, ySpeed)) {
-                            break;
-                        }
-                    }
-                }
-                else if (ySpeed < 0) { // Moving down
-                    for (ySpeed = player.ySpeed; ySpeed < 0; ySpeed++) {
-                        if (placeFree(player, xSpeed, ySpeed)) {
-                            break;
-                        }
-                    }
-                }
-
-                // Move by new xSpeed and ySpeed
-                move(player, xSpeed, ySpeed);
-            }
-
-            // Dynamic Entity logic
-            for (int i = 0; i < dynamicEntityCount; i++) {
+            // Solid Entity logic
+            for (int i = 0; i < solidEntityCount; i++) {
                 // Call update method
-                dynamicEntities[i].update(tick);
+                solidEntities[i].update(tick);
             }
 
             // Pickup logic
@@ -182,23 +108,171 @@ public class Movie {
                 en.update(tick);
             }
 
+            // "Pan the camera"
+            for (int i = 0; i < entityCount; i++) {
+                entities[i].setPosition(entities[i].getXposition() - 2, entities[i].getYposition());
+                entities[i].body.x -= 2;
+            }
+
+            // Generate next procedural section of the level
+            if (tick % 192 == 0) {
+                setupLevel(blobs[randInt(0, 5)]);
+            }
+
+            // Iterate through dynamic (affected by gravity) entities
+            for (int i = 0; i < dynamicEntityCount; i++) {
+                Entity ent = dynamicEntities[i];
+                
+                // Assign floor
+                ent.floor = getFloor(ent);
+
+                // Handle ent landing
+                int offset = ent.ySpeed;
+                for (int speed = ent.ySpeed; speed < 0; speed++) {
+                    if (ent.getYposition() + speed == floorYposition(ent)) {
+                        offset = speed;
+                    }
+                }
+
+                // ent is on the ground
+                if (checkCollision(ent.floor.rectOfSelf(), ent.destRect()) || ent.getYposition() + offset <= ent.floor.getYposition() + ent.floor.getYsize()) {
+                    ent.gravity = 0;
+                    ent.ySpeed = 0;
+                    ent.setPosition(ent.getXposition(), ent.floor.getYposition() + ent.floor.getYsize());
+                    ent.canJump = true;
+                } else {
+                    //System.out.println("In the air");
+                    ent.gravity = 1;
+                }
+
+                // Apply gravity to ent's ySpeed
+                ent.ySpeed -= ent.gravity;
+
+                // Maximum ySpeed
+                if (ent.ySpeed < -16) {
+                    ent.ySpeed = -16;
+                }
+
+                // Move ent by xSpeed and ySpeed
+                if (placeFree(ent, ent.xSpeed, ent.ySpeed)) {
+                    move(ent, ent.xSpeed, ent.ySpeed);
+                } else {
+                    // Snapping xSpeed
+                    int xSpeed = ent.xSpeed;
+                    if (xSpeed > 0) { // Moving right
+                        for (xSpeed = ent.xSpeed; xSpeed > 0; xSpeed--) {
+                            if (placeFree(ent, xSpeed, ent.ySpeed)) {
+                                break;
+                            }
+                        }
+                    } else if (xSpeed < 0) { // Moving left
+                        for (xSpeed = ent.xSpeed; xSpeed < 0; xSpeed++) {
+                            if (placeFree(ent, xSpeed, ent.ySpeed)) {
+                                break;
+                            }
+                        }
+                    }
+
+                    // Snapping ySpeed
+                    int ySpeed = ent.ySpeed;
+                    if (ySpeed > 0) { // Moving up
+                        for (ySpeed = ent.ySpeed; ySpeed > 0; ySpeed--) {
+                            if (placeFree(ent, xSpeed, ySpeed)) {
+                                break;
+                            }
+                        }
+                    } else if (ySpeed < 0) { // Moving down
+                        for (ySpeed = ent.ySpeed; ySpeed < 0; ySpeed++) {
+                            if (placeFree(ent, xSpeed, ySpeed)) {
+                                break;
+                            }
+                        }
+                    }
+
+                    // Move by new xSpeed and ySpeed
+                    move(ent, xSpeed, ySpeed);
+
+                    // DEBUG FEATURE - REMOVE IN FULL VERSION
+                    // Wrapping around the screen
+                    if (ent.getXposition() > window.getWidth()) { // Off the right
+                        ent.setPosition(window.getWidth() - ent.getXsize(), ent.getYposition());
+                    }
+                    if (ent.getXposition() < 0) { // Off the left
+                        ent.setPosition(0, ent.getYposition());
+                    }
+
+                }
+            }
+
             // End frame
             window.frameFinished();
             tick += 1;
         }
     }
 
+    // Set up game scene
+    public static void setupLevel() {
+        mainFloor = new Block("Grass.png", 0, 0);
+        mainFloor.setSize(666, 64);
+        mainFloor.setBody(new PhysicsBody(mainFloor));
+        initEntity(mainFloor, true);
+
+        Block block = new Block ("Grass.png", 256, 64);
+        block.setBody(new PhysicsBody(block));
+        initEntity(block, true, "Coin.png");
+
+        Block block2 = new Block ("Grass.png", 384, 64);
+        block2.setBody(new PhysicsBody(block2));
+        initEntity(block2, true);
+
+        Block block3 = new Block ("Grass.png", 256+128, 128);
+        block3.setBody(new PhysicsBody(block3));
+        initEntity(block3, true, "Coin.png");
+    }
+
+    public static void setupLevel(int[] code) {
+        int offset = 2*(code.length*64);
+
+        if (code == firstBlob) {
+            mainFloor = new Block("Grass.png", 0, 0);
+            mainFloor.setSize(64*12+2, 64);
+            mainFloor.setBody(new PhysicsBody(mainFloor));
+            initEntity(mainFloor, true);
+        }
+        else {
+            mainFloor = new Block("Grass.png", offset, -64);
+            mainFloor.setSize(384, 64);
+            mainFloor.setBody(new PhysicsBody(mainFloor));
+            initEntity(mainFloor, true);
+
+            for (int i = 0; i < code.length; i++) {
+                for (int j = 0; j < code[i]; j++) {
+                    Block block = new Block("Grass.png", offset + 64 * i, 64 * j);
+                    block.setBody(new PhysicsBody(block));
+                    if (j == code[i] - 1) {
+                        initEntity(block, true, "Coin.png");
+                    } else {
+                        initEntity(block, true);
+                    }
+                }
+            }
+        }
+    }
+
     // Set up an entity
     public static void initEntity(Entity entity, boolean updates) {
         if (updates) {
-            dynamicEntities[dynamicEntityCount] = entity;
-            dynamicEntityCount++;
+            solidEntities[solidEntityCount] = entity;
+            solidEntityCount++;
         }
 
         if (inMenu) {
             menuItems[menuItemCount] = entity;
             menuItemCount++;
         }
+
+        entities[entityCount] = entity;
+        entityCount++;
 
         entity.game = new Movie();
         window.addSprite(entity);
@@ -207,22 +281,25 @@ public class Movie {
     // Set up an entity
     public static void initEntity(Entity entity, boolean updates, String pickupSprite) {
         if (updates) {
-            dynamicEntities[dynamicEntityCount] = entity;
-            dynamicEntityCount++;
+            solidEntities[solidEntityCount] = entity;
+            solidEntityCount++;
         }
+        window.addSprite(entity);
 
         entity.game = new Movie();
-        window.addSprite(entity);
+
+        entities[entityCount] = entity;
+        entityCount++;
 
         initPickup(new Pickup(pickupSprite, entity));
     }
 
     // Determine floor
-    public static Entity getFloor() {
+    public static Entity getFloor(Entity ent) {
         // Iterate through dynamic Entities and check if Player will collide
-        for (int i = 0; i < dynamicEntityCount; i++) {
-            Entity newFloor = dynamicEntities[i];
-            if (newFloor != player && (checkCollision(newFloor.body, player.destRect()) || checkCollision(newFloor.body, new Rect(player.body, 0, -1)))) {
+        for (int i = 0; i < solidEntityCount; i++) {
+            Entity newFloor = solidEntities[i];
+            if (newFloor != ent && (checkCollision(newFloor.body, ent.destRect()) || checkCollision(newFloor.body, new Rect(ent.body, 0, -1)))) {
                 return newFloor;
             }
         }
@@ -233,16 +310,29 @@ public class Movie {
     public static void initPickup(Pickup pickup) {
         pickups[pickupCount] = pickup;
         pickupCount++;
-        pickup.game = new Movie();
         window.addSprite(pickup);
+
+        pickup.game = new Movie();
+
+        entities[entityCount] = pickup;
+        entityCount++;
     }
 
     // Set up an enemy
     public static void initEnemy(Enemy enemy) {
         enemies[enemyCount] = enemy;
         enemyCount++;
-        enemy.game = new Movie();
         window.addSprite(enemy);
+
+        enemy.player = player;
+        enemy.floor = mainFloor;
+        enemy.game = new Movie();
+
+        entities[entityCount] = enemy;
+        entityCount++;
+
+        dynamicEntities[dynamicEntityCount] = enemy;
+        dynamicEntityCount++;
     }
 
     // Set up keyboard input
@@ -302,50 +392,16 @@ public class Movie {
 
             @Override
             public void keyReleased(KeyEvent e) {
-                // If Right or Left is released
-                if ((e.getKeyCode() == 0x27 && player.xSpeed > 0) || (e.getKeyCode() == 0x25 && player.xSpeed < 0)) {
-                    player.xSpeed = 0;
+                if (!inMenu) {
+                    // If Right or Left is released
+                    if ((e.getKeyCode() == 0x27 && player.xSpeed > 0) || (e.getKeyCode() == 0x25 && player.xSpeed < 0)) {
+                        player.xSpeed = 0;
+                    }
                 }
             }
         };
         window.addKeyListener(kl);
         window.setFocusable(true);
-    }
-
-    // Set up game scene
-    public static void setupLevel() {
-        mainFloor = new Block("Grass.png", 0, 0);
-        mainFloor.setSize(666, 64);
-        mainFloor.setBody(new PhysicsBody(mainFloor));
-        initEntity(mainFloor, true);
-
-        Block block = new Block ("Grass.png", 256, 64);
-        block.setBody(new PhysicsBody(block));
-        initEntity(block, true, "Coin.png");
-
-        Block block2 = new Block ("Grass.png", 384, 64);
-        block2.setBody(new PhysicsBody(block2));
-        initEntity(block2, true);
-
-        Block block3 = new Block ("Grass.png", 256+128, 128);
-        block3.setBody(new PhysicsBody(block3));
-        initEntity(block3, true, "Coin.png");
-    }
-
-    public static void setupLevel(int[] code) {
-
-        mainFloor = new Block("Grass.png", 0, -64);
-        mainFloor.setSize(666, 64);
-        mainFloor.setBody(new PhysicsBody(mainFloor));
-        initEntity(mainFloor, true);
-
-        for (int i = 0; i < code.length; i++) {
-            for (int j = 0; j < code[i]; j++) {
-                Block block = new Block("Grass.png", 64*i, 64*j);
-                block.setBody(new PhysicsBody(block));
-                initEntity(block, true, "Coin.png");
-            }
-        }
     }
 
     // Move an entity
@@ -359,8 +415,8 @@ public class Movie {
         Rect destRect = new Rect(entity.body, xx, yy);
 
         // Check if destRect collides with a dynamic Entity
-        for (int i = 0; i < dynamicEntityCount; i++) {
-            Entity ent = dynamicEntities[i];
+        for (int i = 0; i < solidEntityCount; i++) {
+            Entity ent = solidEntities[i];
             if (ent != entity && checkCollision(ent.body, destRect)){
                 return false;
             }
@@ -445,7 +501,13 @@ public class Movie {
     }
 
     // Get position of floor's surface
-    public static int floorYposition() {
-        return floor.getYposition() + floor.getYsize();
+    public static int floorYposition(Entity ent) {
+        return ent.floor.getYposition() + ent.floor.getYsize();
+    }
+
+    public static int randInt(int min, int max) {
+        // nextInt is normally exclusive of the top value,
+        // so add 1 to make it inclusive
+        return rand.nextInt((max - min) + 1) + min;
     }
 }
